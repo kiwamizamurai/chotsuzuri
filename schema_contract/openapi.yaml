@@ -1,0 +1,244 @@
+openapi: 3.0.0
+info:
+  title: Accounting Service API
+  description: API for managing accounting journals and accounts
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the service and its components
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/journals:
+    post:
+      summary: Create a new journal
+      description: Creates a new accounting journal entry with multiple debit and credit entries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJournalRequest'
+      responses:
+        '201':
+          description: Journal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journal'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/journals/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Journal ID
+    
+    put:
+      summary: Update a journal
+      description: Updates an existing journal entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJournalRequest'
+      responses:
+        '200':
+          description: Journal updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journal'
+        '400':
+          description: Invalid request
+        '404':
+          description: Journal not found
+    
+    delete:
+      summary: Delete a journal
+      description: Deletes an existing journal entry
+      responses:
+        '204':
+          description: Journal deleted successfully
+        '404':
+          description: Journal not found
+
+  /api/accounts:
+    get:
+      summary: List all accounts
+      description: Returns a list of all available accounts
+      responses:
+        '200':
+          description: List of accounts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pass, fail]
+        version:
+          type: string
+        serviceId:
+          type: string
+        description:
+          type: string
+        details:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Component'
+
+    Component:
+      type: object
+      properties:
+        componentId:
+          type: string
+        componentType:
+          type: string
+        observedValue:
+          type: object
+        status:
+          type: string
+          enum: [pass, fail]
+        time:
+          type: string
+          format: date-time
+        output:
+          type: string
+
+    CreateJournalRequest:
+      type: object
+      required:
+        - date
+        - description
+        - entries
+      properties:
+        date:
+          type: string
+          format: date-time
+        description:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateJournalEntryRequest'
+
+    CreateJournalEntryRequest:
+      type: object
+      required:
+        - account_id
+        - is_debit
+        - amount
+      properties:
+        account_id:
+          type: integer
+          format: uint
+        is_debit:
+          type: boolean
+        amount:
+          type: integer
+
+    Journal:
+      type: object
+      properties:
+        id:
+          type: string
+        journalNumber:
+          type: string
+        date:
+          type: string
+          format: date-time
+        description:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalEntry'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    JournalEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        account:
+          $ref: '#/components/schemas/Account'
+        isDebit:
+          type: boolean
+        amount:
+          type: integer
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        accountType:
+          $ref: '#/components/schemas/AccountType'
+
+    AccountType:
+      type: string
+      enum:
+        - ASSET
+        - LIABILITY
+        - EQUITY
+        - REVENUE
+        - EXPENSE
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string 

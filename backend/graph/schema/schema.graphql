@@ -1,0 +1,73 @@
+type Journal {
+  id: ID!
+  journalNumber: String!
+  date: Time!
+  description: String!
+  entries: [JournalEntry!]!
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type JournalEntry {
+  id: ID!
+  account: Account!
+  isDebit: Boolean!
+  amount: Int!
+}
+
+type Account {
+  id: ID!
+  code: String!
+  name: String!
+  accountType: AccountType!
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+input JournalFilter {
+  dateRange: DateRange
+  accountCodes: [String!]
+  departmentCode: String
+  amountRange: AmountRange
+}
+
+input DateRange {
+  from: Time
+  to: Time
+}
+
+input AmountRange {
+  min: Int
+  max: Int
+}
+
+input PaginationInput {
+  page: Int!
+  perPage: Int!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPrevPage: Boolean!
+  totalPages: Int!
+  currentPage: Int!
+}
+
+type JournalConnection {
+  items: [Journal!]!
+  pageInfo: PageInfo!
+}
+
+scalar Time
+
+type Query {
+  journals(filter: JournalFilter, pagination: PaginationInput!): JournalConnection!
+  journal(id: ID!): Journal
+  accounts: [Account!]!
+}

@@ -1,0 +1,183 @@
+services:
+  backend:
+    container_name: backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_USER: accounting
+      DB_PASSWORD: accounting
+      DB_NAME: accounting
+      DB_PORT: 5432
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 3s
+
+  db:
+    container_name: db
+    image: postgres:16
+    environment:
+      POSTGRES_USER: accounting
+      POSTGRES_PASSWORD: accounting
+      POSTGRES_DB: accounting
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    command: postgres -c 'max_connections=100'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accounting"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    container_name: frontend
+    platform: linux/amd64
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    environment:
+      - RUST_LOG=info
+    command: trunk serve --address 0.0.0.0 --port 3000
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  redoc:
+    container_name: redoc
+    image: redocly/redoc:v2.2.0
+    ports:
+      - "9090:80"
+    volumes:
+      - ./schema_contract/openapi.yaml:/usr/share/nginx/html/openapi.yaml
+    environment:
+      - SPEC_URL=openapi.yaml
+
+  dbeaver:
+    container_name: dbeaver
+    image: dbeaver/cloudbeaver:24.3.0
+    ports:
+      - "8978:8978"
+    tty: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - CLOUDBEAVER_POLICY_MIN_LENGTH=4
+      - CLOUDBEAVER_POLICY_REQUIRE_MIXED_CASE=false
+      - CLOUDBEAVER_POLICY_MIN_NUMBER_COUNT=0
+      - CLOUDBEAVER_POLICY_MIN_SYMBOL_COUNT=0
+
+  receipt-analyzer:
+    container_name: receipt-analyzer
+    build:
+      context: ./receipt-analyzer
+      dockerfile: Dockerfile
+    ports:
+      - "8888:8000"
+    volumes:
+      - ./receipt-analyzer:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:0.5.4
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list | grep -q llava && ollama list | grep -q llama2"]
+      interval: 120s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    entrypoint: >
+      sh -c '
+        ollama serve &
+        sleep 10 &&
+        if ! ollama list | grep llava; then
+          echo "Installing llava model..." &&
+          ollama pull llava
+        fi &&
+        if ! ollama list | grep llama2; then
+          echo "Installing llama2 model..." &&
+          ollama pull llama2
+        fi &&
+        wait
+      '
+
+  dozzle:
+    container_name: dozzle
+    image: amir20/dozzle:v8.9.0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 8989:8080
+    environment:
+      - DOZZLE_FILTER=name=frontend,name=backend,name=db,name=receipt-analyzer,name=ollama
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 3s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  welcome-message:
+    container_name: welcome-message
+    image: busybox:1.37.0
+    depends_on:
+      backend:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      dozzle:
+        condition: service_healthy
+    command: >
+      sh -c '
+        echo "
+        ###########################################
+        #                                         #
+        #   🚀 全てのサービスが起動しました！          #
+        #                                         #
+        #   📝 Frontend: http://localhost:3000    #
+        #   📊 DBeaver:  http://localhost:8978    #
+        #   📚 API Docs: http://localhost:9090    #
+        #   🔍 Logs:     http://localhost:8989    #
+        #                                         #
+        ###########################################
+        "'
+
+volumes:
+  postgres_data:
+  cargo-cache:
+  target-cache:
+  ollama_data:

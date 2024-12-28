@@ -1,0 +1,15 @@
+# ドキュメント生成設定
+format:
+  adjust: true
+  sort: false
+  number: false
+
+# データベース設定
+lint:
+  requireColumnComment:
+    enabled: true
+  requireTableComment:
+    enabled: true
+
+# 出力ディレクトリ構成
+docPath: docs/schema

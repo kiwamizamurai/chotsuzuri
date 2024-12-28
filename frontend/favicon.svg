@@ -1,0 +1,28 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景（和紙調グラデーション） -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8E6E1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D3CFC9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景（和綴じ本の形） -->
+  <rect x="4" y="4" width="24" height="24" rx="2" fill="url(#grad)"/>
+
+  <!-- 和綴じの糸 -->
+  <circle cx="8" y="10" r="1" fill="#4A5568"/>
+  <circle cx="8" y="16" r="1" fill="#4A5568"/>
+  <circle cx="8" y="22" r="1" fill="#4A5568"/>
+
+  <!-- 本文用紙（和紙風） -->
+  <rect x="10" y="6" width="18" height="20" rx="1" fill="#FFFBF5"/>
+
+  <!-- 優しい罫線 -->
+  <line x1="12" y1="12" x2="26" y2="12" stroke="#938980" stroke-width="0.5" stroke-dasharray="1,1"/>
+  <line x1="12" y1="16" x2="26" y2="16" stroke="#938980" stroke-width="0.5" stroke-dasharray="1,1"/>
+  <line x1="12" y1="20" x2="26" y2="20" stroke="#938980" stroke-width="0.5" stroke-dasharray="1,1"/>
+
+  <!-- 「帳」の文字（筆文字風） -->
+  <text x="19" y="18" font-family="serif" font-size="10" fill="#4A5568" text-anchor="middle" style="font-weight: bold;">帳</text>
+</svg>
