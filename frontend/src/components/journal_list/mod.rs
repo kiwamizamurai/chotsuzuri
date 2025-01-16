@@ -25,8 +25,7 @@ impl Component for JournalList {
             api: JournalApi::new(),
         };
 
-        ctx.link().send_message(Msg::LoadJournals);
-
+        ctx.link().send_message(Msg::LoadAccounts);
         component
     }
 
