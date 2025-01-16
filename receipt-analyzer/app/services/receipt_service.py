@@ -6,6 +6,7 @@ import structlog
 from PIL import Image
 import io
 import pytesseract
+from datetime import datetime
 from ..models.receipt import ReceiptData
 
 logger = structlog.get_logger()
@@ -22,6 +23,9 @@ def analyze_receipt_with_llm(image_base64: str) -> ReceiptData:
     1. NO commas in numbers
     2. NO decimal points in prices - round to nearest integer
     3. NO currency symbols
+    4. Date MUST be in YYYY-MM-DD format
+    5. Keep original item names (do not translate)
+    6. Keep original business name as payee (do not translate)
 
     Required JSON format (EXACTLY as shown):
     {
@@ -38,6 +42,8 @@ def analyze_receipt_with_llm(image_base64: str) -> ReceiptData:
 
     FINAL CHECK:
     - Verify ALL numbers are integers
+    - Verify date is in YYYY-MM-DD format
+    - Verify item names and payee are in original language
     """
 
     payload = {
@@ -56,29 +62,37 @@ def analyze_receipt_with_llm(image_base64: str) -> ReceiptData:
             logger.error("ollama_api_error", error=result['error'])
             raise HTTPException(
                 status_code=500,
-                detail=f"Ollama model error: {result['error']}"
+                detail=f"Ollamaモデルエラー: {result['error']}"
             )
 
         logger.info("llm_response", response=result['response'])
 
         try:
             receipt_dict = json.loads(result['response'])
+            # 日付のバリデーション
+            try:
+                datetime.strptime(receipt_dict['date'], '%Y-%m-%d')
+            except ValueError:
+                raise HTTPException(
+                    status_code=500,
+                    detail="日付のフォーマットが不正です。YYYY-MM-DD形式である必要があります。"
+                )
             return ReceiptData.from_dict(receipt_dict)
         except json.JSONDecodeError:
             raise HTTPException(
                 status_code=500,
-                detail="Failed to parse LLM output as JSON"
+                detail="LLMの出力をJSONに解析できませんでした"
             )
         except KeyError as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"Missing required field: {str(e)}"
+                detail=f"必要なフィールドが欠けています: {str(e)}"
             )
 
     except requests.exceptions.RequestException as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Communication error with Ollama API: {str(e)}"
+            detail=f"Ollama APIとの通信エラー: {str(e)}"
         )
 
 def extract_text_with_ocr(image_bytes: bytes) -> str:
@@ -99,9 +113,10 @@ def analyze_text_with_llm(text: str) -> ReceiptData:
     1. NO commas in numbers
     2. NO decimal points in prices - round to nearest integer
     3. NO currency symbols
-    4. Keep original item names (do not translate)
-    5. Keep original business name as payee (do not translate)
-    6. Output ONLY valid JSON - no explanations or additional text
+    4. Date MUST be in YYYY-MM-DD format
+    5. Keep original item names (do not translate)
+    6. Keep original business name as payee (do not translate)
+    7. Output ONLY valid JSON - no explanations or additional text
 
     Required JSON format (EXACTLY as shown):
     {{
@@ -118,8 +133,8 @@ def analyze_text_with_llm(text: str) -> ReceiptData:
 
     FINAL CHECK:
     - Verify ALL numbers are integers
-    - Verify item names and payee are in original language
     - Verify date is in YYYY-MM-DD format
+    - Verify item names and payee are in original language
     - Verify output is ONLY valid JSON
     """
 
@@ -138,27 +153,35 @@ def analyze_text_with_llm(text: str) -> ReceiptData:
             logger.error("ollama_api_error", error=result['error'])
             raise HTTPException(
                 status_code=500,
-                detail=f"Ollama model error: {result['error']}"
+                detail=f"Ollamaモデルエラー: {result['error']}"
             )
 
         logger.info("llm_response", response=result['response'])
 
         try:
             receipt_dict = json.loads(result['response'])
+            # 日付のバリデーション
+            try:
+                datetime.strptime(receipt_dict['date'], '%Y-%m-%d')
+            except ValueError:
+                raise HTTPException(
+                    status_code=500,
+                    detail="日付のフォーマットが不正です。YYYY-MM-DD形式である必要があります。"
+                )
             return ReceiptData.from_dict(receipt_dict)
         except json.JSONDecodeError:
             raise HTTPException(
                 status_code=500,
-                detail="Failed to parse LLM output as JSON"
+                detail="LLMの出力をJSONに解析できませんでした"
             )
         except KeyError as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"Missing required field: {str(e)}"
+                detail=f"必要なフィールドが欠けています: {str(e)}"
             )
 
     except requests.exceptions.RequestException as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Communication error with Ollama API: {str(e)}"
+            detail=f"Ollama APIとの通信エラー: {str(e)}"
         )

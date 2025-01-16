@@ -9,6 +9,8 @@ use crate::models::{
 use serde_json;
 use chrono::{DateTime, Utc};
 use super::error::ApiResult;
+use wasm_bindgen::JsCast;
+use web_sys::{Blob, File, FormData};
 
 #[derive(Clone)]
 pub struct JournalApi {
@@ -177,5 +179,44 @@ impl JournalApi {
             .json::<Vec<Account>>()
             .await
             .map_err(|e| ApiError::new(e.to_string(), Some(status)))
+    }
+
+    pub async fn extract_receipt(&self, file: File) -> Result<Journal, ApiError> {
+        let form_data = FormData::new().map_err(|_| ApiError {
+            message: "Failed to create FormData".to_string(),
+            status_code: None,
+        })?;
+
+        let file_name = file.name();
+        let blob: Blob = file.unchecked_into();
+        form_data.append_with_blob_and_filename(
+            "file",
+            &blob,
+            file_name.as_str(),
+        ).map_err(|_| ApiError {
+            message: "Failed to append file to FormData".to_string(),
+            status_code: None,
+        })?;
+
+        let response = Request::post("http://localhost:8888/api/extract-receipt-ocr-llm")
+            .body(&form_data)
+            .send()
+            .await
+            .map_err(|e| ApiError {
+                message: format!("Network error: {}", e),
+                status_code: None,
+            })?;
+
+        if response.ok() {
+            response.json().await.map_err(|e| ApiError {
+                message: format!("Failed to parse response: {}", e),
+                status_code: None,
+            })
+        } else {
+            Err(ApiError {
+                message: format!("Server error: {}", response.status()),
+                status_code: Some(response.status()),
+            })
+        }
     }
 }

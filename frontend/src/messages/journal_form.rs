@@ -1,4 +1,5 @@
 use crate::models::journal::{Account, Journal};
+use web_sys::File;
 
 #[derive(Debug)]
 pub enum Msg {
@@ -17,4 +18,7 @@ pub enum Msg {
     SubmitStart,
     SubmitComplete,
     InitializeForm(Option<Journal>),
+    FileSelected(File),
+    ExtractReceiptStart,
+    ExtractReceiptComplete(Journal),
 }
