@@ -1,9 +1,94 @@
 use super::*;
+use web_sys::{HtmlInputElement, HtmlSelectElement};
+use web_sys::Event;
 
 impl JournalList {
     pub fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="container">
+                <div class="filter-form">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>{"日付範囲"}</label>
+                            <div class="date-range">
+                                <input
+                                    type="date"
+                                    value={self.model.filter.date_from.clone().unwrap_or_default()}
+                                    onchange={ctx.link().callback(|e: Event| {
+                                        let input = e.target_unchecked_into::<HtmlInputElement>();
+                                        Msg::SetDateFrom(input.value())
+                                    })}
+                                />
+                                <span>{" 〜 "}</span>
+                                <input
+                                    type="date"
+                                    value={self.model.filter.date_to.clone().unwrap_or_default()}
+                                    onchange={ctx.link().callback(|e: Event| {
+                                        let input = e.target_unchecked_into::<HtmlInputElement>();
+                                        Msg::SetDateTo(input.value())
+                                    })}
+                                />
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label>{"勘定科目"}</label>
+                            <select
+                                onchange={ctx.link().callback(|e: Event| {
+                                    let input = e.target_unchecked_into::<HtmlSelectElement>();
+                                    Msg::SetAccountCode(input.value())
+                                })}
+                            >
+                                <option value="">{"すべて"}</option>
+                                {for self.model.accounts.iter().map(|account| {
+                                    html! {
+                                        <option value={account.code.clone()}>
+                                            {format!("{} - {}", account.code, account.name)}
+                                        </option>
+                                    }
+                                })}
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>{"金額範囲"}</label>
+                            <div class="amount-range">
+                                <input
+                                    type="number"
+                                    placeholder="最小"
+                                    value={self.model.filter.amount_min.map(|v| v.to_string()).unwrap_or_default()}
+                                    onchange={ctx.link().callback(|e: Event| {
+                                        let input = e.target_unchecked_into::<HtmlInputElement>();
+                                        Msg::SetAmountMin(input.value().parse::<i32>().ok())
+                                    })}
+                                />
+                                <span>{" 〜 "}</span>
+                                <input
+                                    type="number"
+                                    placeholder="最大"
+                                    value={self.model.filter.amount_max.map(|v| v.to_string()).unwrap_or_default()}
+                                    onchange={ctx.link().callback(|e: Event| {
+                                        let input = e.target_unchecked_into::<HtmlInputElement>();
+                                        Msg::SetAmountMax(input.value().parse::<i32>().ok())
+                                    })}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-actions">
+                        <button
+                            class="button-primary"
+                            onclick={ctx.link().callback(|_| Msg::ApplyFilter)}
+                        >
+                            {"検索"}
+                        </button>
+                        <button
+                            class="button-secondary"
+                            onclick={ctx.link().callback(|_| Msg::ResetFilter)}
+                        >
+                            {"リセット"}
+                        </button>
+                    </div>
+                </div>
+
                 if self.model.loading {
                     <div class="loading-indicator">
                         <div class="spinner"></div>

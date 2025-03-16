@@ -1,7 +1,11 @@
 use super::error::ApiError;
 use gloo_console::log;
 use gloo_net::http::Request;
-use crate::models::{journal::{Account, GraphQLJournalsResponse, Journal}, journal_form::{CreateJournalRequest, CreateJournalResponse}};
+use crate::models::{
+    journal::{Account, GraphQLJournalsResponse, Journal},
+    journal_form::{CreateJournalRequest, CreateJournalResponse},
+    journal_list::JournalFilter,
+};
 use serde_json;
 use chrono::{DateTime, Utc};
 use super::error::ApiResult;
@@ -18,12 +22,12 @@ impl JournalApi {
         }
     }
 
-    pub async fn fetch_journals(&self, page: i32) -> ApiResult<GraphQLJournalsResponse> {
+    pub async fn fetch_journals(&self, page: i32, filter: JournalFilter) -> ApiResult<GraphQLJournalsResponse> {
         let query = r#"
-            query ListJournals($page: Int!) {
+            query ListJournals($page: Int!, $filter: JournalFilter) {
                 journals(
                     pagination: { page: $page, perPage: 5 }
-                    filter: {}
+                    filter: $filter
                 ) {
                     items {
                         id
@@ -54,10 +58,40 @@ impl JournalApi {
             }
         "#;
 
+        let mut filter_obj = serde_json::Map::new();
+
+        if let Some(date_from) = filter.date_from {
+            let mut date_range = serde_json::Map::new();
+            date_range.insert("from".to_string(), serde_json::Value::String(date_from));
+            if let Some(date_to) = filter.date_to {
+                date_range.insert("to".to_string(), serde_json::Value::String(date_to));
+            }
+            filter_obj.insert("dateRange".to_string(), serde_json::Value::Object(date_range));
+        }
+
+        if let Some(account_code) = filter.account_code {
+            filter_obj.insert(
+                "accountCodes".to_string(),
+                serde_json::Value::Array(vec![serde_json::Value::String(account_code)]),
+            );
+        }
+
+        if filter.amount_min.is_some() || filter.amount_max.is_some() {
+            let mut amount_range = serde_json::Map::new();
+            if let Some(min) = filter.amount_min {
+                amount_range.insert("min".to_string(), serde_json::Value::Number(min.into()));
+            }
+            if let Some(max) = filter.amount_max {
+                amount_range.insert("max".to_string(), serde_json::Value::Number(max.into()));
+            }
+            filter_obj.insert("amountRange".to_string(), serde_json::Value::Object(amount_range));
+        }
+
         let request_body = serde_json::json!({
             "query": query,
             "variables": {
-                "page": page
+                "page": page,
+                "filter": filter_obj
             }
         });
 
@@ -83,7 +117,7 @@ impl JournalApi {
             }
             Err(e) => {
                 log!(format!("Parse Error: {}", e));
-                Err(ApiError::new(format!("failed to parse json: {}", e), Some(status)))
+                Err(ApiError::new(format!("JSONのパースに失敗: {}", e), Some(status)))
             }
         }
     }
