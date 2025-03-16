@@ -2,6 +2,8 @@ use crate::{models::validation::ValidationError, models::journal_form::JournalEn
 
 use super::*;
 
+use wasm_bindgen_futures::spawn_local;
+
 impl JournalForm {
     pub fn update(&mut self, ctx: &Context<Self>, msg: Msg) -> bool {
         match msg {
@@ -38,7 +40,7 @@ impl JournalForm {
                 true
             }
             Msg::RemoveEntry(index) => {
-                // Remove pairs (2 entries at a time)
+                // ペアの削除（2エントリーずつ）
                 let pair_index = (index / 2) * 2;
                 self.model.entries.drain(pair_index..=pair_index + 1);
                 true
@@ -76,7 +78,7 @@ impl JournalForm {
                         spawn_local(async move {
                             match api.create_journal(request).await {
                                 Ok(journal) => {
-                                    log!("Journal creation successful");
+                                    log!("仕訳の作成に成功");
                                     on_submit.emit(journal);
                                     link.send_message(Msg::SubmitComplete);
                                 },
@@ -134,6 +136,40 @@ impl JournalForm {
                         JournalEntryForm::default_credit(),
                     ];
                 }
+                true
+            }
+            Msg::FileSelected(file) => {
+                self.model.selected_file = Some(file);
+                true
+            }
+            Msg::ExtractReceiptStart => {
+                if let Some(file) = self.model.selected_file.take() {
+                    self.model.loading = true;
+                    let link = ctx.link().clone();
+                    let api = self.api.clone();
+
+                    spawn_local(async move {
+                        match api.extract_receipt(file).await {
+                            Ok(journal) => {
+                                link.send_message(Msg::ExtractReceiptComplete(journal));
+                            }
+                            Err(e) => {
+                                link.send_message(Msg::FetchError(e.message));
+                            }
+                        }
+                    });
+                }
+                true
+            }
+            Msg::ExtractReceiptComplete(journal) => {
+                self.model.loading = false;
+                self.model.date = journal.date.format("%Y-%m-%d").to_string();
+                self.model.description = journal.description;
+                self.model.entries = journal.entries.into_iter().map(|e| JournalEntryForm {
+                    id: e.account.id,
+                    amount: e.amount.to_string(),
+                    is_debit: e.is_debit,
+                }).collect();
                 true
             }
         }

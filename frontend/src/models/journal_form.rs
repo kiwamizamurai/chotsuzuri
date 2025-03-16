@@ -1,14 +1,16 @@
 use crate::models::journal::Account;
 use serde::{Deserialize, Serialize};
+use web_sys::File;
 
 #[derive(Default)]
 pub struct Model {
+    pub loading: bool,
+    pub accounts: Vec<Account>,
     pub date: String,
     pub description: String,
     pub entries: Vec<JournalEntryForm>,
     pub error: Option<String>,
-    pub accounts: Vec<Account>,
-    pub loading: bool,
+    pub selected_file: Option<File>,
 }
 
 #[derive(Default)]
